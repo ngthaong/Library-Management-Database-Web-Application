@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Genres</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <h1 style="text-align:center;">Genres</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Genre ID</th>
+        <th>Genre Category</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each genres}}
+      <tr data-genre-id="{{this.genre_id}}"
+          data-genre-category="{{this.genre_category}}">
+        <td>{{this.genre_id}}</td>
+        <td>{{this.genre_category}}</td>
+        <td>
+          <form class="delete-genre-form" action="/delete-genre" method="POST" style="display:inline;">
+            <input type="hidden" name="genre_id" value="{{this.genre_id}}">
+            <button type="submit">Delete</button>
+          </form>
+          <button class="update-genre-button">Update</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="form-container">
+    <form action="/add-genre" method="POST">
+      <table>
+        <thead>
+          <tr>
+            <th colspan="2" class="form-title">Add New Genre</th>
+          </tr>
+          <tr>
+            <th>Genre ID</th>
+            <th>Genre Category</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="text" name="genre_id" required></td>
+            <td><input type="text" name="genre_category" required></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="text-align: right;">
+              <input type="submit" value="Add Genre">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </form>
+  </div>
+
+  <!-- Update Modal -->
+  <div id="genreUpdateModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <form action="/update-genre" method="POST">
+        <h3 style="text-align:center;">Update Genre</h3>
+
+        <input type="hidden" id="update_genre_id" name="genre_id">
+
+        <div class="form-row">
+          <label for="update_genre_category">Genre Category</label>
+          <select id="update_genre_category" name="genre_category" required>
+            {{#each allGenres}}
+              <option value="{{this.genre_category}}">{{this.genre_category}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('genreUpdateModal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Customers</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <h1 style="text-align:center;">Customers</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Customer ID</th>
+        <th>Family Name</th>
+        <th>Given Name</th>
+        <th>Date of Birth</th>
+        <th>Number of books checked out</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each customers}}
+      <tr data-customer-id="{{this.customer_id}}"
+          data-family-name="{{this.family_name}}"
+          data-given-name="{{this.given_name}}"
+          data-date-of-birth="{{this.date_of_birth}}">
+        <td>{{this.customer_id}}</td>
+        <td>{{this.family_name}}</td>
+        <td>{{this.given_name}}</td>
+        <td>{{this.date_of_birth}}</td>
+        <td>{{this.num_books_checked_out}}</td>
+        <td>
+          <form action="/delete-customer" method="POST" style="display:inline;">
+            <input type="hidden" name="delete_customer_id" value="{{this.customer_id}}">
+            <button type="submit">Delete</button>
+          </form>
+          <button class="update-customer-button">Update</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="form-container">
+    <form action="/add-customer" method="POST">
+      <table>
+        <thead>
+          <tr>
+            <th colspan="3" class="form-title">Add New Customer</th>
+          </tr>
+          <tr>
+            <th>Family Name</th>
+            <th>Given Name</th>
+            <th>Date of Birth</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="text" name="create_customer_family_name" required></td>
+            <td><input type="text" name="create_customer_given_name" required></td>
+            <td><input type="date" name="create_customer_DOB" required></td>
+          </tr>
+          <tr>
+            <td colspan="3" style="text-align: right;">
+              <input type="submit" value="Add Customer">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </form>
+  </div>
+
+  <!-- Update Modal -->
+  <div id="customerUpdateModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <form action="/update-customer" method="POST">
+        <h3 style="text-align:center;">Update Customer</h3>
+
+        <input type="hidden" id="update_customer_id" name="update_customer_id">
+
+        <div class="form-row">
+          <label for="update_customer_family_name">Family Name</label>
+          <input type="text" id="update_customer_family_name" name="update_customer_family_name" required>
+        </div>
+
+        <div class="form-row">
+          <label for="update_customer_given_name">Given Name</label>
+          <input type="text" id="update_customer_given_name" name="update_customer_given_name" required>
+        </div>
+
+        <div class="form-row">
+          <label for="update_customer_DOB">Date of Birth</label>
+          <input type="date" id="update_customer_DOB" name="update_customer_DOB" required>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('customerUpdateModal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

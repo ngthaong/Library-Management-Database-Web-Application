@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Books Authors</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <h1 style="text-align:center;">Books Authors</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Book ID</th>
+        <th>Author ID</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each books_authors_intersect}}
+      <tr data-id="{{this.id}}" data-book-id="{{this.book_id}}" data-author-id="{{this.author_id}}">
+        <td>{{this.id}}</td>
+        <td>{{this.book_id}}</td>
+        <td>{{this.author_id}}</td>
+        <td>
+          <form action="/delete-books-authors-intersect" method="POST" style="display:inline;">
+            <input type="hidden" name="intersect_id" value="{{this.id}}">
+            <button type="submit">Delete</button>
+          </form>
+          <button class="update-books-authors-button">Update</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <!-- Update Modal -->
+  <div id="booksAuthorsUpdateModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <form action="/update-books-authors-intersect" method="POST">
+        <h3 style="text-align:center;">Update Book-Author</h3>
+
+        <input type="hidden" id="update_intersect_id" name="intersect_id">
+
+        <div class="form-row">
+          <label for="update_book_id">Book</label>
+          <select id="update_book_id" name="book_id" required>
+            {{#each books}}
+              <option value="{{this.book_id}}">{{this.title}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="update_author_id">Author</label>
+          <select id="update_author_id" name="author_id" required>
+            {{#each authors}}
+              <option value="{{this.author_id}}">{{this.name}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('booksAuthorsUpdateModal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Books</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <h1 style="text-align:center;">Books</h1>
+
+  <div class="search-container">
+    <input type="text" id="table-search" placeholder="Type a title">
+  </div>
+<script>
+  console.log(books)
+</script>
+
+<table>
+    <thead>
+      <tr>
+        <th>Book ID</th>
+        <th>Title</th>
+        <th>Author ID</th>
+        <th>Description</th>
+        <th>ISBN</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each books}}
+      <tr data-book-id="{{this.book_id}}" data-author-id="{{this.author_id}}">
+        <td>{{this.book_id}}</td>
+        <td>{{this.title}}</td>
+        <td>{{this.author_id}}</td>
+        <td>{{this.description}}</td>
+        <td>{{this.isbn}}</td>
+        <td>
+          <form class="delete-book-form" action="/delete-book" method="POST" style="display:inline;">
+            <input type="hidden" name="book_id" value="{{this.book_id}}">
+            <button type="submit">Delete</button>
+          </form>
+          <button class="update-button">Update</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+ 
+
+  <div class="form-container">
+    <form action="/add-book" method="POST">
+      <table>
+        <thead>
+          <tr><th colspan="6" class="form-title">Add New Book</th></tr>
+          <tr>
+            <th>Author Last Name</th>
+            <th>Author First Name</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>ISBN</th>
+            <th>Genre Category</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="text" name="author_last_name" required></td>
+            <td><input type="text" name="author_first_name" required></td>
+            <td><input type="text" name="title" required></td>
+            <td><input type="text" name="description" required></td>
+            <td><input type="text" name="isbn" required></td>
+            <td><input type="text" name="genre_category" required></td>
+          </tr>
+          <tr>
+            <td colspan="6" style="text-align: right;">
+              <input type="submit" value="Add Book">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </form>
+  </div>
+
+  <!-- Modal for Update Book -->
+  <div id="updateModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <form action="/update-book" method="POST">
+        <h3 style="text-align: center;">Update Book</h3>
+        <input type="hidden" id="update_book_id" name="book_id">
+
+        <div class="form-row">
+        <label for="update_title">Title</label>
+        <input type="text" id="update_title" name="title" required><br><br>
+        </div>
+
+        <div class="form-row">
+        <label for="update_description">Description</label>
+        <input type="text" id="update_description" name="description" required><br><br>
+        </div>
+
+        <div class="form-row">
+        <label for="update_isbn">ISBN</label>
+        <input type="text" id="update_isbn" name="isbn" required><br><br>
+        </div>
+
+        <div class="form-row">
+        <label for="update_author_id">Author ID</label>
+        <select name="author_id" id="update_author_id" required>
+          <option value="">-- Select an Author ID --</option>
+          {{#each authors}}
+            <option value="{{this.author_id}}">
+              {{this.given_name}} {{this.family_name}} (ID: {{this.author_id}})
+            </option>
+          {{/each}}
+        </select><br><br>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('updateModal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

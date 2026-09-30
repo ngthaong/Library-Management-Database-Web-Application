@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Authors Genres</title>
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+<body>
+  <h1 style="text-align:center;">Authors Genres</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Author ID</th>
+        <th>Genre ID</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each authors_genres_intersect}}
+      <tr data-id="{{this.id}}" data-author-id="{{this.author_id}}" data-genre-id="{{this.genre_id}}">
+        <td>{{this.id}}</td>
+        <td>{{this.author_id}}</td>
+        <td>{{this.genre_id}}</td>
+        <td>
+          <form action="/delete-authors-genres-intersect" method="POST" style="display:inline;">
+            <input type="hidden" name="intersect_id" value="{{this.id}}">
+            <button type="submit">Delete</button>
+          </form>
+          <button class="update-authors-genres-button">Update</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <!-- Update Modal -->
+  <div id="authorsGenresUpdateModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <form action="/update-authors-genres-intersect" method="POST">
+        <h3 style="text-align:center;">Update Author-Genre</h3>
+
+        <input type="hidden" id="update_intersect_id" name="intersect_id">
+
+        <div class="form-row">
+          <label for="update_author_id">Author</label>
+          <select id="update_author_id" name="author_id" required>
+            {{#each authors}}
+              <option value="{{this.author_id}}">{{this.name}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="update_genre_id">Genre</label>
+          <select id="update_genre_id" name="genre_id" required>
+            {{#each genres}}
+              <option value="{{this.genre_id}}">{{this.genre_category}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="modal-buttons">
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('authorsGenresUpdateModal').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

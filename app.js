@@ -1,0 +1,770 @@
+/*
+ SETUP
+ Group 39ers
+ Nguyen Thao
+ Drew Cochran
+ Change Log:
+ 11MAY2025 Imported from Jenny's files; update Handlebars, first app.get function
+*/
+// Express
+const express = require('express'); 
+const app = express(); 
+const cors = require('cors');
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const PORT = 2010; // Set a port number
+const path = require('path');
+
+console.log("STARTING app.js from", __dirname);
+
+// Set up view directory
+app.set('views', path.join(__dirname, 'views'));
+
+// Database
+const db = require('./database/db-connector');
+
+// Middleware to serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Handlebars
+const { engine } = require('express-handlebars'); 
+app.engine('.hbs', engine({ extname: '.hbs'})); 
+app.set('view engine', '.hbs'); 
+
+// Debug middleware to log all incoming requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} request to ${req.url}`);
+  next();
+});
+
+/*
+ Route Handlers and ROUTES
+*/
+// READ routes
+app.get('/', (req, res) => {
+  res.redirect('/home'); 
+});
+
+app.get('/home', (req, res) => {
+  const showResetMessage = req.query.reset === 'true';
+  res.render('home', { showResetMessage });
+});
+
+
+
+// CUSTOMERS ROUTES
+app.get('/customers', async function (req, res) {
+  try {
+    console.log('Processing /customers GET request');
+      const customer_query = `SELECT customer_id, family_name,
+      given_name, DATE_FORMAT(date_of_birth, '%Y-%m-%d') as date_of_birth,
+      num_books_checked_out
+      FROM Customers;`;
+      
+    console.log('Executing query:', customer_query);
+    const [customers] = await db.query(customer_query);
+    
+    console.log(`Query successful. Retrieved ${customers.length} customers.`);
+    res.render('customers', { 
+      customers: customers
+    });
+  } catch (error){
+    console.error('Error executing queries:', error);
+    res.status(500).send(
+      `An error occurred while fetching customers: ${error.message}`
+    );
+  }
+});
+
+// ADD CUSTOMER
+app.post('/add-customer', async function(req, res) {
+  const family_name = req.body.create_customer_family_name;
+  const given_name = req.body.create_customer_given_name;
+  const date_of_birth = req.body.create_customer_DOB;
+  console.log('Received:', family_name, given_name, date_of_birth); // debug line
+  if (!family_name || !given_name || !date_of_birth) {
+    return res.status(400).send('Missing required customer information.');
+  }
+  try {
+    const [result] = await db.query(
+      `CALL sp_add_customer_with_checkout(?, ?, ?, @out_status); SELECT @out_status AS status;`,
+      [family_name, given_name, date_of_birth]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to add customer with checkout.');
+    }
+    res.redirect('/customers');
+  } catch (error) {
+    console.error('Error calling stored procedure:', error);
+    res.status(500).send('Server error while adding customer.');
+  }
+});
+
+// UPDATE CUSTOMER
+app.post('/update-customer', async function(req, res) {
+  try {
+    const { update_customer_id, update_customer_family_name, update_customer_given_name, update_customer_DOB } = req.body;
+    const updateQuery = `
+      CALL sp_update_customer(?, ?, ?, ?, @out_status);
+      SELECT @out_status AS status;
+    `;
+    const [result] = await db.query(updateQuery, [
+      update_customer_id,
+      update_customer_family_name,
+      update_customer_given_name,
+      update_customer_DOB
+    ]);
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to update customer.');
+    }
+    res.redirect('/customers');
+  } catch (error) {
+    console.error('Error updating customer:', error);
+    res.status(500).send('Server error while updating customer.');
+  }
+});
+
+// DELETE CUSTOMER
+app.post('/delete-customer', async function(req, res) {
+  const customer_id = req.body.delete_customer_id;
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_customer(?, @out_status); SELECT @out_status AS status;`,
+      [customer_id]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Could not delete customer.');
+    }
+    res.redirect('/customers');
+  } catch (error) {
+    console.error('Error deleting customer via procedure:', error);
+    res.status(500).send('An error occurred while deleting the customer.');
+  }
+});
+
+
+
+
+// AUTHORS ROUTES
+app.get('/authors', async function (req, res) {
+  try {
+    console.log('Processing /authors GET request');
+    const authors_query = `
+      SELECT author_id, family_name, given_name
+      FROM Authors;
+    `;
+    console.log('Executing query:', authors_query);
+    const [authors] = await db.query(authors_query);
+
+    console.log(`Query successful. Retrieved ${authors.length} authors.`);
+    res.render('authors', {
+      authors: authors
+    });
+  } catch (error) {
+    console.error('Error executing queries:', error);
+    res.status(500).send(
+      `An error occurred while fetching authors: ${error.message}`
+    );
+  }
+});
+
+// UPDATE AUTHOR
+app.post('/update-author', async (req, res) => {
+  try {
+    const { author_id, family_name, given_name } = req.body;
+    const updateQuery = `
+      CALL sp_update_author(?, ?, ?, @out_status);
+      SELECT @out_status AS status;
+    `;
+    const [result] = await db.query(updateQuery, [author_id, family_name, given_name]);
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to update author.');
+    }
+    res.redirect('/authors');
+  } catch (err) {
+    console.error('Error updating author:', err);
+    res.status(500).send('Server error while updating author.');
+  }
+});
+
+
+// DELETE AUTHOR
+app.post('/delete-author', async function(req, res) {
+  const authorId = req.body.author_id;
+  console.log('Attempting to delete author:', authorId);
+
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_author(?, @out_status); SELECT @out_status AS status;`,
+      [authorId]
+    );
+
+    const status = result[1][0].status;
+    console.log('Author delete status:', status);
+
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete author.');
+    }
+
+    res.redirect('/authors');
+  } catch (error) {
+    console.error('Error deleting author:', error);
+    res.status(500).send('Server error while deleting author.');
+  }
+});
+
+
+// BOOKS ROUTES
+app.get('/books', async (req, res) => {
+  try {
+    // const [books] = await db.query(`
+    //   SELECT book_id, title, description, isbn, genre_id
+    //   FROM Books;
+    // `);
+    const [authors] = await db.query(`
+      SELECT author_id, given_name, family_name FROM Authors;
+    `);
+
+    const [books] = await db.query(`
+      SELECT Books.book_id,
+        Books.title,
+        Authors.family_name as author_family_name,
+        Authors.given_name as author_given_name,
+        Books.description,
+        Books.isbn
+FROM Books
+LEFT JOIN Authors ON Authors.author_id = Books.author_id;`)
+    res.render('books', { books, authors });
+  } catch (err) {
+    console.error('Error fetching books or authors:', err);
+    res.status(500).send('Server error loading books page');
+  }
+  console.log("Hello World!")
+});
+
+// ADD BOOK
+app.post('/add-book', async (req, res) => {
+  const { author_last_name, author_first_name, title, description, isbn, genre_category } = req.body;
+  try {
+    const conn = await db.getConnection();
+    await conn.beginTransaction();
+    const [isbnCheck] = await conn.query(
+      `SELECT book_id FROM Books WHERE isbn = ?`,
+      [isbn]
+    );
+    if (isbnCheck.length > 0) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).send('A book with this ISBN already exists.');
+    }
+    const [authorResults] = await conn.query(
+      `SELECT author_id FROM Authors WHERE family_name = ? AND given_name = ?`,
+      [author_last_name, author_first_name]
+    );
+    let author_id;
+    if (authorResults.length > 0) {
+      author_id = authorResults[0].author_id;
+    } else {
+      const [insertAuthorResult] = await conn.query(
+        `INSERT INTO Authors (family_name, given_name) VALUES (?, ?)`,
+        [author_last_name, author_first_name]
+      );
+      author_id = insertAuthorResult.insertId;
+    }
+    const [genreResults] = await conn.query(
+      `SELECT genre_id FROM Genres WHERE genre_category = ?`,
+      [genre_category]
+    );
+    let genre_id;
+    if (genreResults.length > 0) {
+      genre_id = genreResults[0].genre_id;
+    } else {
+      const [insertGenreResult] = await conn.query(
+        `INSERT INTO Genres (genre_category) VALUES (?)`,
+        [genre_category]
+      );
+      genre_id = insertGenreResult.insertId;
+    }
+    await conn.query(
+      `INSERT INTO Books (title, author_id, description, isbn, genre_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [title, author_id, description, isbn, genre_id]
+    );
+    await conn.query(`CALL sp_update_books_authors_intersect(?, ?, ?)`, [isbn, author_last_name, author_first_name]);
+    await conn.query(`CALL sp_update_authors_genres_intersect(?, ?, ?)`, [genre_category, author_last_name, author_first_name]);
+    await conn.query(`CALL sp_update_books_genres_intersect(?, ?)`, [genre_category, isbn]);
+
+    await conn.commit();
+    conn.release();
+    res.redirect('/books');
+
+  } catch (err) {
+    console.error('Error adding book:', err);
+    await conn.rollback();
+    conn.release();
+    res.status(500).send('Error adding new book.');
+  }
+});
+
+// DELETE BOOK
+app.post('/delete-book', async function(req, res) {
+  const bookId = req.body.book_id;
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_book(?, @out_status); SELECT @out_status AS status;`,
+      [bookId]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete book.');
+    }
+    res.redirect('/books');
+  } catch (error) {
+    console.error('Error deleting book:', error);
+    res.status(500).send('Server error while deleting book.');
+  }
+});
+
+// UPDATE BOOK
+app.post('/update-book', async (req, res) => {
+  try {
+    const {
+      book_id,
+      title,
+      description,
+      isbn,
+      author_id,
+      genre_id
+    } = req.body;
+
+    console.log('Updating book:', book_id, title, author_id, genre_id);
+
+    const updateQuery = `
+      CALL sp_update_book(?, ?, ?, ?, ?, ?, @out_status);
+      SELECT @out_status AS status;
+    `;
+
+    const [results] = await db.query(updateQuery, [
+      book_id,
+      title,
+      description,
+      isbn,
+      author_id,
+      genre_id
+    ]);
+
+    const status = results[1][0].status;
+
+    if (status !== 1) {
+      console.error(`Book update failed for ID ${book_id}, status:`, status);
+      return res.status(400).send('Failed to update book.');
+    }
+
+    res.redirect('/books');
+  } catch (error) {
+    console.error('Error in /update-book:', error);
+    res.status(500).send('An error occurred while updating the book.');
+  }
+});
+
+
+
+
+// GENRES ROUTES
+app.get('/genres', async (req, res) => {
+  try {
+    const [genres] = await db.query(`SELECT genre_id, genre_category FROM Genres`);
+    const [allGenres] = await db.query(`SELECT genre_id, genre_category FROM Genres`);
+
+    res.render('genres', {
+      genres,
+      allGenres
+    });
+  } catch (err) {
+    console.error('Error loading genres:', err);
+    res.status(500).send('Failed to load genres.');
+  }
+});
+
+
+// ADD GENRE
+app.post('/add-genre', async function (req, res) {
+  try {
+    const { genre_id, genre_category } = req.body;
+
+    const insertQuery = `
+      INSERT INTO Genres (genre_id, genre_category)
+      VALUES (?, ?);
+    `;
+    await db.query(insertQuery, [genre_id, genre_category]);
+
+    res.redirect('/genres');
+  } catch (error) {
+    console.error('Error adding genre:', error);
+    res.status(500).send(`Failed to add genre: ${error.message}`);
+  }
+});
+
+// DELETE GENRE
+app.post('/delete-genre', async function(req, res) {
+  const genreId = req.body.genre_id;
+  console.log('Attempting to delete genre:', genreId);
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_genre(?, @out_status); SELECT @out_status AS status;`,
+      [genreId]
+    );
+    const status = result[1][0].status;
+    console.log('Delete status:', status); 
+    if (status !== 1) {
+      return res.status(400).send('Genre delete failed.');
+    }
+    res.redirect('/genres');
+  } catch (error) {
+    console.error('Error in delete-genre route:', error);
+    res.status(500).send('Error deleting genre.');
+  }
+});
+
+// UPDATE GENRE
+app.post('/update-genre', async (req, res) => {
+  try {
+    const { genre_id, genre_category } = req.body;
+    const updateQuery = `
+      CALL sp_update_genre(?, ?, @out_status);
+      SELECT @out_status AS status;
+    `;
+    const [result] = await db.query(updateQuery, [genre_id, genre_category]);
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to update genre.');
+    }
+    res.redirect('/genres');
+  } catch (err) {
+    console.error('Error updating genre:', err);
+    res.status(500).send('Server error while updating genre.');
+  }
+});
+
+
+
+
+// CHECKOUT ROUTES
+app.get('/checked_out', async function (req, res) {
+  try {
+    console.log('Processing /checked_out GET request');
+
+    const [checkouts] = await db.query(`SELECT * FROM Checked_out`);
+    const [books] = await db.query(`SELECT book_id, title FROM Books`);
+    const [customers] = await db.query(`SELECT customer_id, family_name, given_name FROM Customers`);
+
+    checkouts.forEach(co => {
+      const date = new Date(co.date_of_return);
+      co.formatted_return_date = date.toISOString().split('T')[0]; 
+    });
+    res.render('checked_out', {
+      checkouts,
+      books,
+      customers
+    });
+  } catch (error) {
+    console.error('Error loading /checked_out:', error);
+    res.status(500).send(`Error loading checked out records: ${error.message}`);
+  }
+});
+
+// DELETE CHECKOUT
+app.post('/delete-checked-out', async function(req, res) {
+  const { customer_id, book_id } = req.body;
+  console.log(`Attempting to delete Checked_out row for customer_id=${customer_id}, book_id=${book_id}`);
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_checked_out(?, ?, @out_status); SELECT @out_status AS status;`,
+      [customer_id, book_id]
+    );
+    const status = result[1][0].status;
+    console.log('Checked_out delete status:', status);
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete checked-out record.');
+    }
+    res.redirect('/checked_out');
+  } catch (error) {
+    console.error('Error deleting checked-out record:', error);
+    res.status(500).send('Server error while deleting checked-out record.');
+  }
+});
+
+// UPDATE CHECKOUT
+app.post('/update-checked-out', async (req, res) => {
+  const {
+    update_book_id,
+    update_customer_id,
+    update_days,
+    update_return_date,
+    update_extension,
+    update_book_id_original,
+    update_customer_id_original
+  } = req.body;
+  try {
+    const [result] = await db.query(
+      `UPDATE Checked_out
+       SET days_of_checkout = ?, date_of_return = ?, extension_granted = ?
+       WHERE customer_id = ? AND book_id = ?`,
+      [
+        update_days,
+        update_return_date,
+        update_extension,
+        update_customer_id_original,
+        update_book_id_original
+      ]
+    );
+    console.log(`Updated rows: ${result.affectedRows}`);
+    res.redirect('/checked_out');
+  } catch (err) {
+    console.error('Error updating checkout:', err);
+    res.status(500).send('Database update error');
+  }
+});
+
+
+
+
+// AUTHORS AND GENRES ROUTES
+app.get('/authors_genres_intersect', async (req, res) => {
+  try {
+    const [intersects] = await db.query('SELECT * FROM Authors_Genres_intersect');
+    const [authors] = await db.query('SELECT author_id, CONCAT(given_name, " ", family_name) AS name FROM Authors');
+    const [genres] = await db.query('SELECT genre_id, genre_category FROM Genres');
+
+    res.render('authors_genres_intersect', {
+      authors_genres_intersect: intersects,
+      authors,
+      genres
+    });
+  } catch (err) {
+    console.error('Error loading authors_genres_intersect:', err);
+    res.status(500).send('Failed to load Authors-Genres Intersect page');
+  }
+});
+
+
+// DELETE AUTHORS GENRES INTERSECT
+app.post('/delete-authors-genres-intersect', async function(req, res) {
+  const id = req.body.intersect_id;
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_authors_genres_intersect(?, @out_status); SELECT @out_status AS status;`,
+      [id]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete authors-genres intersect.');
+    }
+    res.redirect('/authors_genres_intersect');
+  } catch (error) {
+    console.error('Error deleting authors-genres intersect:', error);
+    res.status(500).send('Server error.');
+  }
+});
+
+// UPDATE AUTHORS GENRES INTERSECT
+app.post('/update-authors-genres-intersect', async (req, res) => {
+  const { intersect_id, author_id, genre_id } = req.body;
+
+  try {
+    await db.query(
+      `UPDATE Authors_Genres_intersect
+       SET author_id = ?, genre_id = ?
+       WHERE id = ?`,
+      [author_id, genre_id, intersect_id]
+    );
+
+    res.redirect('/authors_genres_intersect');
+  } catch (err) {
+    console.error('Error updating Authors_Genres_intersect:', err);
+    res.status(500).send('Failed to update Authors-Genres record');
+  }
+});
+
+
+
+
+
+// BOOK AUTHOR ROUTES
+app.get('/books_authors_intersect', async (req, res) => {
+  try {
+    const [intersects] = await db.query('SELECT * FROM Books_Authors_intersect');
+    const [books] = await db.query('SELECT book_id, title FROM Books');
+    const [authors] = await db.query('SELECT author_id, CONCAT(given_name, " ", family_name) AS name FROM Authors');
+
+    res.render('books_authors_intersect', {
+      books_authors_intersect: intersects,
+      books,
+      authors
+    });
+  } catch (err) {
+    console.error('Error loading books_authors_intersect:', err);
+    res.status(500).send('Failed to load Books-Authors Intersect page');
+  }
+});
+
+
+// DELETE BOOK AUTHOR
+app.post('/delete-books-authors-intersect', async function(req, res) {
+  const id = req.body.intersect_id;
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_books_authors_intersect(?, @out_status); SELECT @out_status AS status;`,
+      [id]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete books-authors intersect.');
+    }
+    res.redirect('/books_authors_intersect');
+  } catch (error) {
+    console.error('Error deleting books-authors intersect:', error);
+    res.status(500).send('Server error.');
+  }
+});
+
+// UPDATE BOOKS AUTHORS INTERSECT
+app.post('/update-books-authors-intersect', async (req, res) => {
+  const { intersect_id, book_id, author_id } = req.body;
+
+  try {
+    await db.query(
+      `UPDATE Books_Authors_intersect
+       SET book_id = ?, author_id = ?
+       WHERE id = ?`,
+      [book_id, author_id, intersect_id]
+    );
+
+    res.redirect('/books_authors_intersect');
+  } catch (err) {
+    console.error('Error updating Books_Authors_intersect:', err);
+    res.status(500).send('Failed to update Books-Authors record');
+  }
+});
+
+
+
+
+
+
+// BOOK GENRE ROUTES
+app.get('/books_genres_intersect', async (req, res) => {
+  try {
+    const [intersects] = await db.query('SELECT * FROM Books_Genres_intersect');
+    const [books] = await db.query('SELECT book_id, title FROM Books');
+    const [genres] = await db.query('SELECT genre_id, genre_category FROM Genres');
+
+    res.render('books_genres_intersect', {
+      books_genres_intersect: intersects,
+      books,
+      genres
+    });
+  } catch (err) {
+    console.error('Error loading books_genres_intersect:', err);
+    res.status(500).send('Failed to load Books-Genres Intersect page');
+  }
+});
+
+// DELETE BOOK GENRE
+app.post('/delete-books-genres-intersect', async function(req, res) {
+  const id = req.body.intersect_id;
+  try {
+    const [result] = await db.query(
+      `CALL sp_delete_books_genres_intersect(?, @out_status); SELECT @out_status AS status;`,
+      [id]
+    );
+    const status = result[1][0].status;
+    if (status !== 1) {
+      return res.status(400).send('Failed to delete books-genres intersect.');
+    }
+    res.redirect('/books_genres_intersect');
+  } catch (error) {
+    console.error('Error deleting books-genres intersect:', error);
+    res.status(500).send('Server error.');
+  }
+});
+
+// UPDATE BOOKS GENRES INTERSECT
+app.post('/update-books-genres-intersect', async (req, res) => {
+  const { intersect_id, book_id, genre_id } = req.body;
+
+  try {
+    await db.query(
+      `UPDATE Books_Genres_intersect
+       SET book_id = ?, genre_id = ?
+       WHERE id = ?`,
+      [book_id, genre_id, intersect_id]
+    );
+
+    res.redirect('/books_genres_intersect');
+  } catch (err) {
+    console.error('Error updating Books_Genres_intersect:', err);
+    res.status(500).send('Failed to update Books-Genres record');
+  }
+});
+
+
+
+
+// DEBUG ROUTE TO CHECK TABLE CONTENTS
+app.get('/debug-tables', async (req, res) => {
+  try {
+    const [books] = await db.query("SELECT * FROM Books");
+    const [genres] = await db.query("SELECT * FROM Genres");
+    const [customers] = await db.query("SELECT * FROM Customers");
+    res.json({
+      books,
+      genres,
+      customers
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// RESET DATABASE
+app.get('/reset', async (req, res) => {
+  let conn;
+  try {
+    console.log("RESETTING DATABASE...");
+    conn = await db.getConnection();
+    await conn.query('CALL sp_reset_and_reload_sample_data();');
+    // Debug: Check table counts after reset
+    const [[{ books_count }]] = await conn.query('SELECT COUNT(*) AS books_count FROM Books');
+    const [[{ genres_count }]] = await conn.query('SELECT COUNT(*) AS genres_count FROM Genres');
+    const [[{ customers_count }]] = await conn.query('SELECT COUNT(*) AS customers_count FROM Customers');
+    console.log(`After reset: Books=${books_count}, Genres=${genres_count}, Customers=${customers_count}`);
+    res.json({ success: true, books_count, genres_count, customers_count });
+  } catch (error) {
+    console.error('Error resetting database:', error);
+    if (error && error.sqlMessage) {
+      console.error('MySQL error:', error.sqlMessage);
+    }
+    res.status(500).json({
+      success: false,
+      error: error.sqlMessage || error.message || 'Unknown database error'
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+
+/*
+ LISTENER
+ */
+app.listen(PORT, function() { 
+  console.log('Express started on http://localhost:' + PORT + '; press Ctrl-C to terminate.');
+});
